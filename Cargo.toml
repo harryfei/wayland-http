@@ -1,12 +1,22 @@
 [package]
+authors = ["Fangyuanziti <tiziyuanfang@gmail.com>"]
 name = "wayland-http"
 version = "0.1.0"
-authors = ["Fangyuanziti <tiziyuanfang@gmail.com>"]
 
 [dependencies]
-wayland-server = "0.8.*"
-smithay = { git = "https://github.com/vberger/smithay.git" }
+image = "*"
+time = "0.1.37"
+wayland-server = "0.9.*"
+
+[dependencies.smithay]
+path = "../smithay"
 
 [dependencies.wayland-protocols]
-version = "0.8.*"
-features = ["server", "nightly", "unstable_protocols"]
+features = ["server", "unstable_protocols"]
+version = "0.9.*"
+
+# [replace."wayland-protocols:0.9.4"]
+# path = "../wayland-rs/wayland-protocols"
+
+# [replace."wayland-server:0.9.4"]
+# path = "../wayland-rs/wayland-server"

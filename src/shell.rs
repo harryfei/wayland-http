@@ -1,11 +1,7 @@
 use wayland_server::protocol::wl_shell;
 use wayland_server::protocol::wl_shell_surface;
 use wayland_server::protocol::wl_surface;
-use wayland_server::{
-    GlobalHandler,
-    EventLoopHandle,
-    Client
-};
+use wayland_server::{GlobalHandler, EventLoopHandle, Client};
 
 use easy_wayland::EasyEventLoopHandle;
 use shell_surface;
@@ -19,9 +15,8 @@ impl wl_shell::Handler for ShellHandler {
                          _resource: &wl_shell::WlShell,
                          id: wl_shell_surface::WlShellSurface,
                          _surface: &wl_surface::WlSurface) {
-        evqh.easy_register(&id, shell_surface::ShellSurfaceHandler{});
+        evqh.easy_register(&id, shell_surface::ShellSurfaceHandler::new());
     }
-    
 }
 
 declare_handler!(ShellHandler, wl_shell::Handler, wl_shell::WlShell);
@@ -30,16 +25,12 @@ pub struct BindHandler;
 
 impl BindHandler {
     pub fn new() -> BindHandler {
-        BindHandler{}
+        BindHandler {}
     }
 }
 
 impl GlobalHandler<wl_shell::WlShell> for BindHandler {
-    fn bind(&mut self,
-            evlh: &mut EventLoopHandle,
-            _client: &Client,
-            shell: wl_shell::WlShell
-    ) {
-        evlh.easy_register(&shell, ShellHandler{});
+    fn bind(&mut self, evlh: &mut EventLoopHandle, _client: &Client, shell: wl_shell::WlShell) {
+        evlh.easy_register(&shell, ShellHandler {});
     }
 }

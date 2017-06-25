@@ -6,9 +6,8 @@ pub struct RegionHandler;
 
 impl RegionHandler {
     pub fn new() -> RegionHandler {
-        RegionHandler{}
+        RegionHandler {}
     }
-    
 }
 
 impl wl_region::Handler for RegionHandler {}
