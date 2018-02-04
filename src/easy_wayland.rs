@@ -1,38 +1,48 @@
-use std::any::Any;
-use wayland_server::protocol::Resource;
+use wayland_server::Client;
+use wayland_server::Resource;
+use wayland_sys::server::*;
+use libc::{pid_t, uid_t, gid_t};
 
-use wayland_server::{GlobalHandler, Handler, EventLoopHandle, EventLoop, Global};
-
-pub trait EasyEventLoop {
-    fn easy_register_global<H, R>(&mut self, handler: H, version: i32) -> (Global, usize)
-        where H: GlobalHandler<R> + Send + Any + 'static,
-              R: Resource;
+pub struct Credentials {
+    pub pid: pid_t,
+    pub uid: uid_t,
+    pub gid: gid_t,
 }
 
-impl EasyEventLoop for EventLoop {
-    fn easy_register_global<H, R>(&mut self, handler: H, version: i32) -> (Global, usize)
-        where H: GlobalHandler<R> + Send + Any + 'static,
-              R: Resource
-    {
-        let handler_id = self.add_handler(handler);
-        let global = self.register_global::<R, H>(handler_id, version);
-        return (global, handler_id);
+pub trait ResourceExt {
+    fn get_client(&self) -> Client;
+}
+impl<T: Resource> ResourceExt for T {
+    fn get_client(&self) -> Client {
+        unsafe {
+            let wl_client_ptr = ffi_dispatch!(WAYLAND_SERVER_HANDLE, wl_resource_get_client, self.ptr());
+            Client::from_ptr(wl_client_ptr)
+        }
     }
 }
 
-pub trait EasyEventLoopHandle {
-    fn easy_register<H, R>(&mut self, resource: &R, handler: H) -> usize
-        where H: Handler<R> + Send + Any + 'static,
-              R: Resource;
+
+pub trait ClientExt {
+    fn get_credentials(&self) -> Credentials;
 }
 
-impl EasyEventLoopHandle for EventLoopHandle {
-    fn easy_register<H, R>(&mut self, resource: &R, handler: H) -> usize
-        where H: Handler<R> + Send + Any + 'static,
-              R: Resource
-    {
-        let handler_id = self.add_handler(handler);
-        self.register::<R, H>(resource, handler_id);
-        return handler_id;
+impl ClientExt for Client {
+
+    fn get_credentials(&self) -> Credentials {
+
+        let mut pid: pid_t = 0;
+        let mut uid: uid_t = 0;
+        let mut gid: gid_t = 0;
+
+        unsafe {
+            ffi_dispatch!(WAYLAND_SERVER_HANDLE, wl_client_get_credentials, self.ptr(),
+                &mut pid as *mut pid_t, &mut uid as *mut uid_t, &mut gid as *mut gid_t)
+        };
+
+        Credentials {
+            pid: pid,
+            uid: uid,
+            gid: gid,
+        }
     }
 }

@@ -4,19 +4,25 @@ name = "wayland-http"
 version = "0.1.0"
 
 [dependencies]
-image = "*"
-time = "0.1.37"
-wayland-server = "0.9.*"
-
-[dependencies.smithay]
-path = "../smithay"
+image = "0.18.0"
+lazy_static = "1.0.0"
+time = "0.1.39"
+wayland-server = "0.12.5"
+actix = "0.4.5"
+actix-web = "0.3.3"
+smithay = { git = "https://github.com/fangyuanziti/smithay.git", rev = "50e59b6" }
+libc = "0.2.36"
+wayland-sys = "0.12.5"
+cute = "0.3.0"
+serde = "1.0.27"
+serde_derive = "1.0.27"
+http = "0.1.4"
+failure = "0.1.1"
+futures = "0.1.18"
+sugar = { git = "https://github.com/fangyuanziti/sugar-rs.git" }
+futures-timer = "0.1.1"
+serde_json = "1.0.9"
 
 [dependencies.wayland-protocols]
 features = ["server", "unstable_protocols"]
-version = "0.9.*"
-
-# [replace."wayland-protocols:0.9.4"]
-# path = "../wayland-rs/wayland-protocols"
-
-# [replace."wayland-server:0.9.4"]
-# path = "../wayland-rs/wayland-server"
+version = "0.12.5"
