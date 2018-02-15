@@ -74,7 +74,7 @@ impl Handler<WindowEvent> for WindowStreamWs {
                 // release buffer
                 let _ = (&ctx.state().window_manager).release_buffer(self.window_id);
 
-                println!("commit");
+                debug!("commit");
 
                 match buffer {
                     Ok(Buffer::Update {
@@ -86,15 +86,15 @@ impl Handler<WindowEvent> for WindowStreamWs {
                             "height": height,
                         }).to_string());
 
-                        println!("{} {}", width, height);
+                        debug!("{} {}", width, height);
 
                         ctx.binary(data);
                     }
                     Ok(Buffer::Erase) => {
-                        println!("erase");
+                        debug!("erase");
                     }
                     Err(e) => {
-                        println!("{}", e);
+                        debug!("{}", e);
                     }
                 }
             }

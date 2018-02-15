@@ -44,7 +44,7 @@ fn window(req: HttpRequest<State>) -> Result<HttpResponse, HttpApiError> {
         false
     };
 
-    println!("has_hdr {}", has_hdr);
+    debug!("has_hdr {}", has_hdr);
 
     let id = req.match_info()["id"]
         .parse::<u64>()
@@ -70,6 +70,8 @@ fn all_windows(req: HttpRequest<State>) -> Result<HttpResponse, Error> {
 }
 
 pub fn run_http_server(window_manager: Arc<WindowManager>) {
+    info!("Http api server started at {}", "http://127.0.0.1:8080");
+
     let state = State { window_manager };
     HttpServer::new(move || {
         Application::with_state(state.clone())

@@ -81,7 +81,7 @@ impl WindowManager for WaylandWindowManager {
             })
             .and_then(|surface_id| {
                 self.registered_senders.lock().ok().map(|mut s| {
-                    println!("register senders");
+                    debug!("register senders");
                     let (sender, receiver) = fchannel(10);
 
                     s.insert(surface_id, sender);
@@ -108,7 +108,7 @@ impl WindowManager for WaylandWindowManager {
             timespec.sec * 1000 as i64 + (f64::from(timespec.nsec) / 1000.0 / 1000.0) as i64;
 
         callback.done(mills as u32);
-        println!("frame done");
+        debug!("frame done");
 
         Ok(())
     }
@@ -127,7 +127,7 @@ impl WindowManager for WaylandWindowManager {
             }
         });
 
-        println!("release");
+        debug!("release");
 
         Ok(())
     }

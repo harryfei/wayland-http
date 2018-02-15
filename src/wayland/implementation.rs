@@ -5,6 +5,7 @@ use smithay::wayland::shell::{shell_init, PopupConfigure, ShellState,
 use std::sync::{Arc, Mutex};
 use wayland_server::{EventLoop, StateToken};
 use window_manager::WindowEvent;
+use slog;
 
 use super::window_map::WindowMap;
 use super::wayland_window_manager::WaylandWindowManager;
@@ -18,14 +19,14 @@ pub fn surface_implementation() -> SurfaceUserImplementation<SurfaceData, Roles,
             token.with_surface_data(surface, |attributes| {
                 let id = attributes.user_data.id;
 
-                println!("commit in");
+                debug!("commit in");
                 idata.sender_registry.lock().ok().map(|mut registry| {
                     let result = registry
                         .get_mut(&id)
                         .map(|sender| sender.try_send(WindowEvent::Commit));
 
                     if let Some(Err(ref r)) = result {
-                        println!("surface commit {} {}", r.is_full(), r.is_disconnected());
+                        debug!("surface commit {} {}", r.is_full(), r.is_disconnected());
                     }
                     match result {
                         Some(Err(ref r)) if r.is_disconnected() => {
@@ -37,7 +38,7 @@ pub fn surface_implementation() -> SurfaceUserImplementation<SurfaceData, Roles,
             });
         },
         frame: |_, _, surface, callback, token| {
-            println!("frame in");
+            debug!("frame in");
 
             token.with_surface_data(surface, |attributes| {
                 attributes.user_data.callback_queue.push_back(callback);
@@ -100,6 +101,7 @@ pub fn shell_implementation(
 
 pub fn init_shell(
     evl: &mut EventLoop,
+    logger: &slog::Logger,
 ) -> (
     CompositorToken<SurfaceData, Roles, CompositorIData>,
     StateToken<ShellState<SurfaceData, Roles, CompositorIData, ()>>,
@@ -111,7 +113,7 @@ pub fn init_shell(
         evl,
         surface_implementation(),
         CompositorIData::new(window_event_sender_registry.clone()),
-        None,
+        logger.clone(),
     );
 
     let window_maps = WindowMap::<_, _, _, ()>::new(compositor_token);
@@ -132,7 +134,7 @@ pub fn init_shell(
             serial: 0,
             surface_id_serial: 0,
         },
-        None,
+        logger.clone(),
     );
 
     (
