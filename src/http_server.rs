@@ -8,24 +8,22 @@ use window_manager::Buffer;
 
 #[derive(Fail, Debug)]
 enum HttpApiError {
-   #[fail(display="internal error")]
-   InternalError,
-   #[fail(display="invalid window id")]
-   InvalidWindowId,
-   #[fail(display="window id not exist")]
-   WindowIdNotExist,
+    #[fail(display = "internal error")] InternalError,
+    #[fail(display = "invalid window id")] InvalidWindowId,
+    #[fail(display = "window id not exist")] WindowIdNotExist,
 }
 
 impl error::ResponseError for HttpApiError {
     fn error_response(&self) -> HttpResponse {
-       match *self {
-          HttpApiError::InternalError => HttpResponse::new(
-              StatusCode::INTERNAL_SERVER_ERROR, Body::Empty),
-          HttpApiError::InvalidWindowId => HttpResponse::new(
-              StatusCode::BAD_REQUEST, Body::Empty),
-          HttpApiError::WindowIdNotExist => HttpResponse::new(
-              StatusCode::NOT_FOUND, Body::Empty),
-       }
+        match *self {
+            HttpApiError::InternalError => {
+                HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR, Body::Empty)
+            }
+            HttpApiError::InvalidWindowId => {
+                HttpResponse::new(StatusCode::BAD_REQUEST, Body::Empty)
+            }
+            HttpApiError::WindowIdNotExist => HttpResponse::new(StatusCode::NOT_FOUND, Body::Empty),
+        }
     }
 }
 
@@ -42,14 +40,12 @@ impl ResponseType for NextFrame {
 }
 
 struct WindowStreamWs {
-    window_id: u64
+    window_id: u64,
 }
 
 impl WindowStreamWs {
     fn new(window_id: u64) -> Self {
-        Self {
-            window_id,
-        }
+        Self { window_id }
     }
 }
 
@@ -66,10 +62,9 @@ impl Actor for WindowStreamWs {
         // render the buffer once websocket connected
         ctx.notify(WindowEvent::Commit);
     }
-
 }
 
-/// Define Handler for ws::Message message
+/// Define Handler for `ws::Message` message
 impl Handler<ws::Message> for WindowStreamWs {
     type Result = ();
 
@@ -79,8 +74,7 @@ impl Handler<ws::Message> for WindowStreamWs {
             ws::Message::Text(_text) => {
                 // The web only send next_frame event now.
                 ctx.notify(NextFrame);
-
-            },
+            }
             ws::Message::Binary(bin) => ctx.binary(bin),
             ws::Message::Closed | ws::Message::Error => {
                 ctx.stop();
@@ -101,7 +95,6 @@ impl Handler<WindowEvent> for WindowStreamWs {
     fn handle(&mut self, msg: WindowEvent, ctx: &mut Self::Context) {
         match msg {
             WindowEvent::Commit => {
-
                 // copy buffer data
                 let buffer = (&ctx.state().window_manager).get_buffer(self.window_id);
 
@@ -111,7 +104,10 @@ impl Handler<WindowEvent> for WindowStreamWs {
                 println!("commit");
 
                 match buffer {
-                    Ok(Buffer::Update {data, size: (width, height)}) => {
+                    Ok(Buffer::Update {
+                        data,
+                        size: (width, height),
+                    }) => {
                         ctx.text(&json!({
                             "width": width,
                             "height": height,
@@ -120,15 +116,15 @@ impl Handler<WindowEvent> for WindowStreamWs {
                         println!("{} {}", width, height);
 
                         ctx.binary(data);
-                    },
+                    }
                     Ok(Buffer::Erase) => {
                         println!("erase");
-                    },
+                    }
                     Err(e) => {
                         println!("{}", e);
                     }
                 }
-            },
+            }
         }
     }
 }
@@ -141,9 +137,7 @@ impl Handler<NextFrame> for WindowStreamWs {
     }
 }
 
-
 fn window(req: HttpRequest<State>) -> Result<HttpResponse, HttpApiError> {
-
     let has_hdr = if let Some(hdr) = req.headers().get(header::UPGRADE) {
         if let Ok(s) = hdr.to_str() {
             s.to_lowercase().contains("websocket")
@@ -156,28 +150,21 @@ fn window(req: HttpRequest<State>) -> Result<HttpResponse, HttpApiError> {
 
     println!("has_hdr {}", has_hdr);
 
-    let id = req.match_info()["id"].parse::<u64>()
-        .map_err(|_| {
-            HttpApiError::InvalidWindowId
-        })?;
+    let id = req.match_info()["id"]
+        .parse::<u64>()
+        .map_err(|_| HttpApiError::InvalidWindowId)?;
 
     if !has_hdr {
-
         let wm = &req.state().window_manager;
 
-        let window = wm.get_window(id)
-            .ok_or(HttpApiError::WindowIdNotExist)?;
+        let window = wm.get_window(id).ok_or(HttpApiError::WindowIdNotExist)?;
 
-        httpcodes::HTTPOk.build().json(window)
-            .map_err(|_| {
-                HttpApiError::InternalError
-            })
-
+        httpcodes::HTTPOk
+            .build()
+            .json(window)
+            .map_err(|_| HttpApiError::InternalError)
     } else {
-        ws::start(req, WindowStreamWs::new(id))
-            .map_err(|_| {
-                HttpApiError::InternalError
-            })
+        ws::start(req, WindowStreamWs::new(id)).map_err(|_| HttpApiError::InternalError)
     }
 }
 
