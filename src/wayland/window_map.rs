@@ -3,8 +3,9 @@ use smithay::wayland::compositor::{CompositorToken, SubsurfaceRole};
 use smithay::wayland::compositor::roles::Role;
 use smithay::wayland::shell::{ShellSurfaceRole, ToplevelSurface};
 use wayland_server::protocol::wl_surface::WlSurface;
-use easy_wayland::*;
 use window_manager::WindowMetaData;
+
+use super::easy_wayland::*;
 
 pub struct Window<U, R, CID, SD> {
     toplevel: ToplevelSurface<U, R, CID, SD>,

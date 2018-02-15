@@ -22,8 +22,6 @@ extern crate wayland_sys;
 
 mod wayland;
 mod http_server;
-mod window_map;
-mod easy_wayland;
 mod window_manager;
 
 fn main() {
