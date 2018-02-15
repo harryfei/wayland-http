@@ -1,16 +1,22 @@
-use actix::*;
+mod state;
+mod window_websocket;
+
 use actix_web::*;
 use std::sync::Arc;
 use http::header;
 use window_manager::WindowManager;
-use window_manager::WindowEvent;
-use window_manager::Buffer;
+
+use self::state::State;
+use self::window_websocket::WindowStreamWs;
 
 #[derive(Fail, Debug)]
 enum HttpApiError {
-    #[fail(display = "internal error")] InternalError,
-    #[fail(display = "invalid window id")] InvalidWindowId,
-    #[fail(display = "window id not exist")] WindowIdNotExist,
+    #[fail(display = "internal error")]
+    InternalError,
+    #[fail(display = "invalid window id")]
+    InvalidWindowId,
+    #[fail(display = "window id not exist")]
+    WindowIdNotExist,
 }
 
 impl error::ResponseError for HttpApiError {
@@ -24,116 +30,6 @@ impl error::ResponseError for HttpApiError {
             }
             HttpApiError::WindowIdNotExist => HttpResponse::new(StatusCode::NOT_FOUND, Body::Empty),
         }
-    }
-}
-
-#[derive(Clone)]
-struct State {
-    window_manager: Arc<WindowManager>,
-}
-
-struct NextFrame;
-
-impl ResponseType for NextFrame {
-    type Item = ();
-    type Error = ();
-}
-
-struct WindowStreamWs {
-    window_id: u64,
-}
-
-impl WindowStreamWs {
-    fn new(window_id: u64) -> Self {
-        Self { window_id }
-    }
-}
-
-impl Actor for WindowStreamWs {
-    type Context = ws::WebsocketContext<Self, State>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        let window_event_stream = ctx.state().window_manager.get_event_stream(self.window_id);
-
-        if let Some(s) = window_event_stream {
-            ctx.add_message_stream(s);
-        }
-
-        // render the buffer once websocket connected
-        ctx.notify(WindowEvent::Commit);
-    }
-}
-
-/// Define Handler for `ws::Message` message
-impl Handler<ws::Message> for WindowStreamWs {
-    type Result = ();
-
-    fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
-        match msg {
-            ws::Message::Ping(msg) => ctx.pong(&msg),
-            ws::Message::Text(_text) => {
-                // The web only send next_frame event now.
-                ctx.notify(NextFrame);
-            }
-            ws::Message::Binary(bin) => ctx.binary(bin),
-            ws::Message::Closed | ws::Message::Error => {
-                ctx.stop();
-            }
-            _ => (),
-        }
-    }
-}
-
-impl ResponseType for WindowEvent {
-    type Item = ();
-    type Error = ();
-}
-
-impl Handler<WindowEvent> for WindowStreamWs {
-    type Result = ();
-
-    fn handle(&mut self, msg: WindowEvent, ctx: &mut Self::Context) {
-        match msg {
-            WindowEvent::Commit => {
-                // copy buffer data
-                let buffer = (&ctx.state().window_manager).get_buffer(self.window_id);
-
-                // release buffer
-                let _ = (&ctx.state().window_manager).release_buffer(self.window_id);
-
-                println!("commit");
-
-                match buffer {
-                    Ok(Buffer::Update {
-                        data,
-                        size: (width, height),
-                    }) => {
-                        ctx.text(&json!({
-                            "width": width,
-                            "height": height,
-                        }).to_string());
-
-                        println!("{} {}", width, height);
-
-                        ctx.binary(data);
-                    }
-                    Ok(Buffer::Erase) => {
-                        println!("erase");
-                    }
-                    Err(e) => {
-                        println!("{}", e);
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl Handler<NextFrame> for WindowStreamWs {
-    type Result = ();
-
-    fn handle(&mut self, _msg: NextFrame, ctx: &mut Self::Context) {
-        let _ = ctx.state().window_manager.next_frame(self.window_id);
     }
 }
 
