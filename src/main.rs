@@ -5,7 +5,6 @@ extern crate failure;
 extern crate futures;
 extern crate futures_timer;
 extern crate http;
-extern crate image;
 extern crate libc;
 #[macro_use]
 extern crate serde_derive;
