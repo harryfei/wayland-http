@@ -1,25 +1,24 @@
-extern crate wayland_server;
-extern crate wayland_protocols;
-#[macro_use]
-extern crate wayland_sys;
-#[macro_use]
-extern crate smithay;
-extern crate image;
-extern crate time;
 extern crate actix;
 extern crate actix_web;
-extern crate libc;
 #[macro_use]
 extern crate failure;
+extern crate futures;
+extern crate futures_timer;
+extern crate http;
+extern crate image;
+extern crate libc;
+#[macro_use]
+extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 #[macro_use]
-extern crate serde_derive;
-extern crate http;
-extern crate futures;
+extern crate smithay;
 extern crate sugar;
-extern crate futures_timer;
-
+extern crate time;
+extern crate wayland_protocols;
+extern crate wayland_server;
+#[macro_use]
+extern crate wayland_sys;
 
 mod wayland;
 mod http_server;

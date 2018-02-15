@@ -9,13 +9,12 @@ pub struct WindowMetaData {
     pub title: Option<String>,
 }
 
-
 pub enum WindowEvent {
     Commit,
 }
 
 pub enum Buffer {
-    Update{data: Vec<u8>, size: (u32, u32)},
+    Update { data: Vec<u8>, size: (u32, u32) },
     Erase,
 }
 

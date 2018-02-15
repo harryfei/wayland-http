@@ -9,8 +9,7 @@ use wayland_server::protocol::wl_callback::WlCallback;
 use std::sync::mpsc::channel;
 
 use window_map::WindowMap;
-use smithay::wayland::compositor::{compositor_init, CompositorToken,
-                                   SurfaceUserImplementation};
+use smithay::wayland::compositor::{compositor_init, CompositorToken, SurfaceUserImplementation};
 use smithay::wayland::shell::{shell_init, PopupConfigure, ShellState, ShellSurfaceRole,
                               ShellSurfaceUserImplementation, ToplevelConfigure, ToplevelSurface};
 use smithay::wayland::shm;
@@ -18,22 +17,16 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use wayland_server::{EventLoop, StateToken};
 use std::collections::{HashMap, VecDeque};
 use window_manager::{WindowEvent, WindowManager, WindowMetaData};
-use futures::sync::mpsc::{channel as fchannel, Sender, Receiver};
+use futures::sync::mpsc::{channel as fchannel, Receiver, Sender};
 use failure::Error;
 use window_manager::Buffer;
 use sugar::SResultExt;
-
 
 define_roles!(Roles => [ ShellSurface, ShellSurfaceRole ] );
 
 type WindowEventSenderRegistry = HashMap<u64, Sender<WindowEvent>>;
 
-pub type MyWindowMap = WindowMap<
-    SurfaceData,
-    Roles,
-    CompositorIData,
-    (),
->;
+pub type MyWindowMap = WindowMap<SurfaceData, Roles, CompositorIData, ()>;
 
 struct WaylandWindowManager {
     window_maps: Mutex<MyWindowMap>,
@@ -41,31 +34,33 @@ struct WaylandWindowManager {
     registered_senders: Arc<Mutex<WindowEventSenderRegistry>>,
 
     ctoken: Mutex<CompositorToken<SurfaceData, Roles, CompositorIData>>,
-
 }
 
 impl WaylandWindowManager {
-    fn insert_window(&self, toplevel: ToplevelSurface<SurfaceData, Roles, CompositorIData, ()>)
-        -> Result<(), Error>
-    {
+    fn insert_window(
+        &self,
+        toplevel: ToplevelSurface<SurfaceData, Roles, CompositorIData, ()>,
+    ) -> Result<(), Error> {
         self.get_window_maps()
             .map(|mut w| w.insert(toplevel))
             .eat_value()
     }
 
     fn refresh(&self) -> Result<(), Error> {
-        self.get_window_maps()
-            .map(|mut w| w.refresh())
-            .eat_value()
+        self.get_window_maps().map(|mut w| w.refresh()).eat_value()
     }
 
     fn get_window_maps(&self) -> Result<MutexGuard<MyWindowMap>, Error> {
-        self.window_maps.lock()
+        self.window_maps
+            .lock()
             .map_err(|e| format_err!("lock window maps error {}", e.to_string()))
     }
 
-    fn get_ctoken(&self) -> Result<MutexGuard<CompositorToken<SurfaceData, Roles, CompositorIData>>, Error> {
-        self.ctoken.lock()
+    fn get_ctoken(
+        &self,
+    ) -> Result<MutexGuard<CompositorToken<SurfaceData, Roles, CompositorIData>>, Error> {
+        self.ctoken
+            .lock()
             .map_err(|e| format_err!("lock ctoken error {}", e.to_string()))
     }
 }
@@ -81,58 +76,51 @@ impl WindowManager for WaylandWindowManager {
     fn all_windows(&self) -> Vec<WindowMetaData> {
         match self.window_maps.lock() {
             Ok(w) => w.get_windows_metadata(),
-            _ => vec!(),
+            _ => vec![],
         }
     }
 
     fn get_event_stream(&self, id: u64) -> Option<Receiver<WindowEvent>> {
         let window_id = id;
 
-        self.window_maps.lock()
+        self.window_maps
+            .lock()
             .ok()
             .and_then(|w| {
-                w.get_surface(window_id)
-                    .and_then(|surface| {
-                        self.ctoken.lock()
-                            .ok()
-                            .map(|ctoken| {
-                                ctoken.with_surface_data(surface, |s| s.user_data.id)
-                            })
-                    })
+                w.get_surface(window_id).and_then(|surface| {
+                    self.ctoken
+                        .lock()
+                        .ok()
+                        .map(|ctoken| ctoken.with_surface_data(surface, |s| s.user_data.id))
+                })
             })
             .and_then(|surface_id| {
+                self.registered_senders.lock().ok().map(|mut s| {
+                    println!("register senders");
+                    let (sender, receiver) = fchannel(10);
 
-
-                self.registered_senders.lock()
-                    .ok()
-                    .map(|mut s| {
-                        println!("register senders");
-                        let (sender, receiver) = fchannel(10);
-
-                        s.insert(surface_id, sender);
-                        receiver
-                    })
+                    s.insert(surface_id, sender);
+                    receiver
+                })
             })
     }
 
     fn next_frame(&self, id: u64) -> Result<(), Error> {
         let w = self.get_window_maps()?;
 
-        let surface = w
-            .get_surface(id)
-            .ok_or(format_err!("no surface of window({})", id))?;
+        let surface = w.get_surface(id)
+            .ok_or_else(|| format_err!("no surface of window({})", id))?;
 
         let ctoken = self.get_ctoken()?;
 
-        let callback = ctoken.with_surface_data(surface, |a| {
-            a.user_data.callback_queue.pop_front()
-        })
-        .ok_or(format_err!("no callbck in this surface of window({})", id))?;
+        let callback = ctoken
+            .with_surface_data(surface, |a| a.user_data.callback_queue.pop_front())
+            .ok_or_else(|| format_err!("no callbck in this surface of window({})", id))?;
 
         use time;
         let timespec = time::get_time();
         let mills: i64 =
-            timespec.sec * 1000 as i64 + (timespec.nsec as f64 / 1000.0 / 1000.0) as i64;
+            timespec.sec * 1000 as i64 + (f64::from(timespec.nsec) / 1000.0 / 1000.0) as i64;
 
         callback.done(mills as u32);
         println!("frame done");
@@ -143,18 +131,18 @@ impl WindowManager for WaylandWindowManager {
     fn release_buffer(&self, id: u64) -> Result<(), Error> {
         let w = self.get_window_maps()?;
 
-        let surface = w
-            .get_surface(id)
-            .ok_or(format_err!("no surface of window({})", id))?;
+        let surface = w.get_surface(id)
+            .ok_or_else(|| format_err!("no surface of window({})", id))?;
 
         let ctoken = self.get_ctoken()?;
 
         ctoken.with_surface_data(surface, |a| {
-            if let Some(Some((ref b, (_x, _y)))) = a.buffer { b.release(); }
+            if let Some(Some((ref b, (_x, _y)))) = a.buffer {
+                b.release();
+            }
         });
 
         println!("release");
-
 
         Ok(())
     }
@@ -162,18 +150,17 @@ impl WindowManager for WaylandWindowManager {
     fn get_buffer(&self, id: u64) -> Result<Buffer, Error> {
         let w = self.get_window_maps()?;
 
-        let surface = w
-            .get_surface(id)
-            .ok_or(format_err!("no surface of window({})", id))?;
+        let surface = w.get_surface(id)
+            .ok_or_else(|| format_err!("no surface of window({})", id))?;
 
         let ctoken = self.get_ctoken()?;
 
-        let buffer = ctoken.with_surface_data(surface, |a| {
+        ctoken.with_surface_data(surface, |a| {
             match a.buffer {
-
                 // copy buffer data
                 Some(Some((ref b, (_x, _y)))) => {
-                    let mut result: Result<Buffer, Error> = Err(format_err!("buffer not managed by shm buffer"));
+                    let mut result: Result<Buffer, Error> =
+                        Err(format_err!("buffer not managed by shm buffer"));
 
                     let _ = shm::with_buffer_contents(b, |slice, data| {
                         let offset = data.offset as usize;
@@ -182,8 +169,9 @@ impl WindowManager for WaylandWindowManager {
                         let height = data.height as usize;
                         let mut new_vec = Vec::with_capacity(width * height * 4);
                         for i in 0..height {
-                            new_vec
-                                .extend(&slice[(offset + i * stride)..(offset + i * stride + width * 4)]);
+                            new_vec.extend(
+                                &slice[(offset + i * stride)..(offset + i * stride + width * 4)],
+                            );
                         }
 
                         result = Ok(Buffer::Update {
@@ -200,9 +188,7 @@ impl WindowManager for WaylandWindowManager {
                 // do nothing
                 None => Err(format_err!("no such buffer")),
             }
-        });
-
-        buffer
+        })
     }
 }
 
@@ -219,9 +205,7 @@ pub struct CompositorIData {
 
 impl CompositorIData {
     fn new(sender_registry: Arc<Mutex<WindowEventSenderRegistry>>) -> Self {
-        Self {
-            sender_registry,
-        }
+        Self { sender_registry }
     }
 }
 
@@ -232,25 +216,21 @@ pub fn surface_implementation() -> SurfaceUserImplementation<SurfaceData, Roles,
                 let id = attributes.user_data.id;
 
                 println!("commit in");
-                idata.sender_registry.lock()
-                    .ok()
-                    .map(|mut registry| {
-                        let result = registry.get_mut(&id)
-                            .map(|sender| sender.try_send(WindowEvent::Commit));
+                idata.sender_registry.lock().ok().map(|mut registry| {
+                    let result = registry
+                        .get_mut(&id)
+                        .map(|sender| sender.try_send(WindowEvent::Commit));
 
-                        match result {
-                            Some(Err(ref r)) => {
-                                println!("surface commit {} {}", r.is_full(), r.is_disconnected());
-                            },
-                            _ => {}
+                    if let Some(Err(ref r)) = result {
+                        println!("surface commit {} {}", r.is_full(), r.is_disconnected());
+                    }
+                    match result {
+                        Some(Err(ref r)) if r.is_disconnected() => {
+                            registry.remove(&id);
                         }
-                        match result {
-                            Some(Err(ref r)) if r.is_disconnected() => {
-                                registry.remove(&id);
-                            }
-                            _ => {}
-                        }
-                    });
+                        _ => {}
+                    }
+                });
             });
         },
         frame: |_, _, surface, callback, token| {
@@ -270,16 +250,14 @@ pub struct ShellIData {
     pub serial: u32,
 
     pub surface_id_serial: u64,
-
 }
 
-pub fn shell_implementation() -> ShellSurfaceUserImplementation<SurfaceData, Roles, CompositorIData, ShellIData, ()>
-{
+pub fn shell_implementation(
+) -> ShellSurfaceUserImplementation<SurfaceData, Roles, CompositorIData, ShellIData, ()> {
     ShellSurfaceUserImplementation {
         new_client: |_, _, _| {},
         client_pong: |_, _, _| {},
         new_toplevel: |_, idata, toplevel| {
-
             // assign unique surface id for surface of each toplevel.
             if let Some(s) = toplevel.get_surface() {
                 idata.token.with_surface_data(s, |attributes| {
@@ -290,33 +268,28 @@ pub fn shell_implementation() -> ShellSurfaceUserImplementation<SurfaceData, Rol
                 idata.surface_id_serial += 1;
             }
 
-
             // store toplevel in window manager
             let _ = idata.window_manager.insert_window(toplevel);
 
-            idata.serial = idata.serial + 1;
+            idata.serial += 1;
             ToplevelConfigure {
                 size: None,
                 states: vec![xdg_toplevel::State::Activated],
                 serial: idata.serial,
             }
         },
-        new_popup: |_, _, _| {
-            PopupConfigure {
-                size: (10, 10),
-                position: (10, 10),
-                serial: 42,
-            }
+        new_popup: |_, _, _| PopupConfigure {
+            size: (10, 10),
+            position: (10, 10),
+            serial: 42,
         },
         move_: |_, _, _, _, _| {},
         resize: |_, _, _, _, _, _| {},
         grab: |_, _, _, _, _| {},
-        change_display_state: |_, _, _, _, _, _, _| {
-            ToplevelConfigure {
-                size: None,
-                states: vec![],
-                serial: 42,
-            }
+        change_display_state: |_, _, _, _, _, _, _| ToplevelConfigure {
+            size: None,
+            states: vec![],
+            serial: 42,
         },
         show_window_menu: |_, _, _, _, _, _, _| {},
     }
@@ -335,11 +308,10 @@ fn init_shell(
         evl,
         surface_implementation(),
         CompositorIData::new(window_event_sender_registry.clone()),
-        None);
-
-    let window_maps = WindowMap::<_, _, _, ()>::new(
-        compositor_token,
+        None,
     );
+
+    let window_maps = WindowMap::<_, _, _, ()>::new(compositor_token);
 
     let wayland_window_manager = Arc::new(WaylandWindowManager {
         window_maps: Mutex::new(window_maps),
@@ -360,9 +332,12 @@ fn init_shell(
         None,
     );
 
-    (compositor_token, shell_state_token, wayland_window_manager.clone())
+    (
+        compositor_token,
+        shell_state_token,
+        wayland_window_manager.clone(),
+    )
 }
-
 
 pub fn run_wayland_thread() -> Arc<WindowManager> {
     let (sender, receiver) = channel();
